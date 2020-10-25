@@ -64,5 +64,5 @@ for w in [mean, sd]:
 # Set up layouts and add to document
 inputs = column(text, mean, sd)
 
-curdoc().add_root(row(inputs, plot, width=800))
+curdoc().add_root(row(plot, inputs, width=800))
 curdoc().title = "Normal Distribution 正态分布"

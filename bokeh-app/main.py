@@ -1,89 +1,69 @@
-from os.path import join, dirname
-import datetime
 
-import pandas as pd
-from scipy.signal import savgol_filter
+''' Present an interactive function explorer with slider widgets.
+Scrub the sliders to change the properties of the ``sin`` curve, or
+type into the title text box to update the title of the plot.
+Use the ``bokeh serve`` command to run the example by executing:
+    bokeh serve sliders.py
+at your command prompt. Then navigate to the URL
+    http://localhost:5006/sliders
+in your browser.
+'''
+import numpy as np
 
 from bokeh.io import curdoc
-from bokeh.layouts import row, column
-from bokeh.models import ColumnDataSource, DataRange1d, Select
-from bokeh.palettes import Blues4
+from bokeh.layouts import column, row
+from bokeh.models import ColumnDataSource, Slider, TextInput
 from bokeh.plotting import figure
 
-STATISTICS = ['record_min_temp', 'actual_min_temp', 'average_min_temp', 'average_max_temp', 'actual_max_temp', 'record_max_temp']
+# Set up data
+N = 200
+x = np.linspace(0, 4*np.pi, N)
+y = np.sin(x)
+source = ColumnDataSource(data=dict(x=x, y=y))
 
-def get_dataset(src, name, distribution):
-    df = src[src.airport == name].copy()
-    del df['airport']
-    df['date'] = pd.to_datetime(df.date)
-    # timedelta here instead of pd.DateOffset to avoid pandas bug < 0.18 (Pandas issue #11925)
-    df['left'] = df.date - datetime.timedelta(days=0.5)
-    df['right'] = df.date + datetime.timedelta(days=0.5)
-    df = df.set_index(['date'])
-    df.sort_index(inplace=True)
-    if distribution == 'Smoothed':
-        window, order = 51, 3
-        for key in STATISTICS:
-            df[key] = savgol_filter(df[key], window, order)
 
-    return ColumnDataSource(data=df)
+# Set up plot
+plot = figure(plot_height=400, plot_width=400, title="my sine wave",
+              tools="crosshair,pan,reset,save,wheel_zoom",
+              x_range=[0, 4*np.pi], y_range=[-2.5, 2.5])
 
-def make_plot(source, title):
-    plot = figure(x_axis_type="datetime", plot_width=800, tools="", toolbar_location=None)
-    plot.title.text = title
+plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
 
-    plot.quad(top='record_max_temp', bottom='record_min_temp', left='left', right='right',
-              color=Blues4[2], source=source, legend="Record")
-    plot.quad(top='average_max_temp', bottom='average_min_temp', left='left', right='right',
-              color=Blues4[1], source=source, legend="Average")
-    plot.quad(top='actual_max_temp', bottom='actual_min_temp', left='left', right='right',
-              color=Blues4[0], alpha=0.5, line_color="black", source=source, legend="Actual")
 
-    # fixed attributes
-    plot.xaxis.axis_label = None
-    plot.yaxis.axis_label = "Temperature (F)"
-    plot.axis.axis_label_text_font_style = "bold"
-    plot.x_range = DataRange1d(range_padding=0.0)
-    plot.grid.grid_line_alpha = 0.3
+# Set up widgets
+text = TextInput(title="title", value='my sine wave')
+offset = Slider(title="offset", value=0.0, start=-5.0, end=5.0, step=0.1)
+amplitude = Slider(title="amplitude", value=1.0, start=-5.0, end=5.0, step=0.1)
+phase = Slider(title="phase", value=0.0, start=0.0, end=2*np.pi)
+freq = Slider(title="frequency", value=1.0, start=0.1, end=5.1, step=0.1)
 
-    return plot
 
-def update_plot(attrname, old, new):
-    city = city_select.value
-    plot.title.text = "Weather data for " + cities[city]['title']
+# Set up callbacks
+def update_title(attrname, old, new):
+    plot.title.text = text.value
 
-    src = get_dataset(df, cities[city]['airport'], distribution_select.value)
-    source.data.update(src.data)
+text.on_change('value', update_title)
 
-city = 'Austin'
-distribution = 'Discrete'
+def update_data(attrname, old, new):
 
-cities = {
-    'Austin': {
-        'airport': 'AUS',
-        'title': 'Austin, TX',
-    },
-    'Boston': {
-        'airport': 'BOS',
-        'title': 'Boston, MA',
-    },
-    'Seattle': {
-        'airport': 'SEA',
-        'title': 'Seattle, WA',
-    }
-}
+    # Get the current slider values
+    a = amplitude.value
+    b = offset.value
+    w = phase.value
+    k = freq.value
 
-city_select = Select(value=city, title='City', options=sorted(cities.keys()))
-distribution_select = Select(value=distribution, title='Distribution', options=['Discrete', 'Smoothed'])
+    # Generate the new curve
+    x = np.linspace(0, 4*np.pi, N)
+    y = a*np.sin(k*x + w) + b
 
-df = pd.read_csv(join(dirname(__file__), 'data/2015_weather.csv'))
-source = get_dataset(df, cities[city]['airport'], distribution)
-plot = make_plot(source, "Weather data for " + cities[city]['title'])
+    source.data = dict(x=x, y=y)
 
-city_select.on_change('value', update_plot)
-distribution_select.on_change('value', update_plot)
+for w in [offset, amplitude, phase, freq]:
+    w.on_change('value', update_data)
 
-controls = column(city_select, distribution_select)
 
-curdoc().add_root(row(plot, controls))
-curdoc().title = "Weather"
+# Set up layouts and add to document
+inputs = column(text, offset, amplitude, phase, freq)
+
+curdoc().add_root(row(inputs, plot, width=800))
+curdoc().title = "Sliders"

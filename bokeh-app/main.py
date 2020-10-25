@@ -16,26 +16,27 @@ from bokeh.models import ColumnDataSource, Slider, TextInput
 from bokeh.plotting import figure
 
 # Set up data
+mu = 0
+sigma = 1
 N = 200
-x = np.linspace(0, 4*np.pi, N)
-y = np.sin(x)
+x = np.linspace(-10,10, N)
+y = 1/(sigma * np.sqrt(2*np.pi)) * np.exp(-(x-mu)**2 / (2*sigma**2))
+
 source = ColumnDataSource(data=dict(x=x, y=y))
 
 
 # Set up plot
-plot = figure(plot_height=400, plot_width=400, title="my sine wave",
+plot = figure(plot_height=400, plot_width=400, title="Normal Distribution 正态分布",
               tools="crosshair,pan,reset,save,wheel_zoom",
-              x_range=[0, 4*np.pi], y_range=[-2.5, 2.5])
+              x_range=[-10, 10], y_range=[0, 0.5])
 
 plot.line('x', 'y', source=source, line_width=3, line_alpha=0.6)
 
 
 # Set up widgets
-text = TextInput(title="title", value='my sine wave')
-offset = Slider(title="offset", value=0.0, start=-5.0, end=5.0, step=0.1)
-amplitude = Slider(title="amplitude", value=1.0, start=-5.0, end=5.0, step=0.1)
-phase = Slider(title="phase", value=0.0, start=0.0, end=2*np.pi)
-freq = Slider(title="frequency", value=1.0, start=0.1, end=5.1, step=0.1)
+text = TextInput(title="图：", value='Normal Distribution 正态分布')
+mean = Slider(title="Mean 均值", value=0.0, start=-5.0, end=5.0, step=0.1)
+sd = Slider(title="Standard Deviation 标准差", value=1.0, start=1.0, end=10.0, step=0.1)
 
 
 # Set up callbacks
@@ -47,23 +48,21 @@ text.on_change('value', update_title)
 def update_data(attrname, old, new):
 
     # Get the current slider values
-    a = amplitude.value
-    b = offset.value
-    w = phase.value
-    k = freq.value
+    mu = mean.value
+    sigma = sd.value
 
     # Generate the new curve
-    x = np.linspace(0, 4*np.pi, N)
-    y = a*np.sin(k*x + w) + b
+    x = np.linspace(-10,10, N)
+    y = 1/(sigma * np.sqrt(2*np.pi)) * np.exp(-(x-mu)**2 / (2*sigma**2))
 
     source.data = dict(x=x, y=y)
 
-for w in [offset, amplitude, phase, freq]:
+for w in [mean, sd]:
     w.on_change('value', update_data)
 
 
 # Set up layouts and add to document
-inputs = column(text, offset, amplitude, phase, freq)
+inputs = column(text, mean, sd)
 
 curdoc().add_root(row(inputs, plot, width=800))
-curdoc().title = "Sliders"
+curdoc().title = "Normal Distribution 正态分布"
